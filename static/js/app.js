@@ -87,6 +87,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleWebcamTabClick() {
         // Don't automatically start webcam, just prep the UI
         captureBtn.disabled = true;
+        
+        // Check browser compatibility up front
+        if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+            showError('Your browser does not support webcam access. Please try a modern browser like Chrome or Firefox.');
+            startWebcamBtn.disabled = true;
+        }
     }
 
     function toggleWebcam() {
@@ -101,17 +107,48 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function startWebcam() {
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then(function(mediaStream) {
-                    stream = mediaStream;
-                    webcamElement.srcObject = stream;
+            // Request video with preferred settings
+            navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    facingMode: "user" // Prefer front camera if available
+                }
+            })
+            .then(function(mediaStream) {
+                stream = mediaStream;
+                webcamElement.srcObject = stream;
+                webcamElement.onloadedmetadata = function(e) {
+                    webcamElement.play();
                     startWebcamBtn.innerHTML = '<i class="fas fa-video-slash me-2"></i>Stop Camera';
                     captureBtn.disabled = false;
-                })
-                .catch(function(err) {
-                    console.error('Error accessing webcam:', err);
-                    showError('Could not access the webcam. Please make sure you have granted permission.');
-                });
+                    
+                    // Add live detection option
+                    let liveDetectionBtn = document.getElementById('live-detection-btn');
+                    if (!liveDetectionBtn) {
+                        liveDetectionBtn = document.createElement('button');
+                        liveDetectionBtn.id = 'live-detection-btn';
+                        liveDetectionBtn.className = 'btn btn-info ms-2';
+                        liveDetectionBtn.innerHTML = '<i class="fas fa-magic me-2"></i>Live Detection';
+                        liveDetectionBtn.onclick = toggleLiveDetection;
+                        
+                        // Add it after capture button
+                        captureBtn.parentNode.appendChild(liveDetectionBtn);
+                    } else {
+                        liveDetectionBtn.style.display = 'inline-block';
+                    }
+                };
+            })
+            .catch(function(err) {
+                console.error('Error accessing webcam:', err);
+                if (err.name === 'NotAllowedError') {
+                    showError('Webcam access denied. Please allow camera access in your browser settings.');
+                } else if (err.name === 'NotFoundError') {
+                    showError('No webcam found. Please connect a webcam and try again.');
+                } else {
+                    showError('Could not access the webcam: ' + err.message);
+                }
+            });
         } else {
             showError('Your browser does not support webcam access.');
         }
@@ -119,12 +156,77 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function stopWebcam() {
         if (stream) {
+            // Stop all tracks
             stream.getTracks().forEach(track => track.stop());
             webcamElement.srcObject = null;
             stream = null;
+            
+            // Update UI
             startWebcamBtn.innerHTML = '<i class="fas fa-video me-2"></i>Start Camera';
             captureBtn.disabled = true;
+            
+            // Hide live detection button
+            const liveDetectionBtn = document.getElementById('live-detection-btn');
+            if (liveDetectionBtn) {
+                liveDetectionBtn.style.display = 'none';
+            }
+            
+            // Stop live detection if active
+            stopLiveDetection();
         }
+    }
+
+    // Live face detection variables
+    let isLiveDetectionActive = false;
+    let liveDetectionInterval = null;
+
+    function toggleLiveDetection() {
+        const liveDetectionBtn = document.getElementById('live-detection-btn');
+        
+        if (isLiveDetectionActive) {
+            stopLiveDetection();
+            liveDetectionBtn.innerHTML = '<i class="fas fa-magic me-2"></i>Live Detection';
+            liveDetectionBtn.classList.remove('btn-danger');
+            liveDetectionBtn.classList.add('btn-info');
+        } else {
+            startLiveDetection();
+            liveDetectionBtn.innerHTML = '<i class="fas fa-stop me-2"></i>Stop Live Detection';
+            liveDetectionBtn.classList.remove('btn-info');
+            liveDetectionBtn.classList.add('btn-danger');
+        }
+    }
+
+    function startLiveDetection() {
+        if (!stream || isLiveDetectionActive) return;
+        
+        isLiveDetectionActive = true;
+        
+        // Show preview section if hidden
+        previewSection.classList.remove('d-none');
+        
+        // Run detection every 1 second
+        liveDetectionInterval = setInterval(() => {
+            captureAndAnalyze();
+        }, 1000);
+        
+        // Initial capture and analysis
+        captureAndAnalyze();
+    }
+
+    function stopLiveDetection() {
+        if (liveDetectionInterval) {
+            clearInterval(liveDetectionInterval);
+            liveDetectionInterval = null;
+        }
+        isLiveDetectionActive = false;
+    }
+
+    function captureAndAnalyze() {
+        // Capture current frame
+        capturePhoto();
+        
+        // Analyze automatically
+        analyzeFace();
     }
 
     function capturePhoto() {
