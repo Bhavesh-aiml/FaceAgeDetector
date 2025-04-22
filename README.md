@@ -1,83 +1,38 @@
-# Face Age Predictor
+# Next.js Face Age Predictor
 
-A web application that uses computer vision to detect faces and predict ages from images or webcam.
+A web application that uses advanced face detection and age prediction using Next.js and face-api.js (built on TensorFlow.js).
 
 ## Features
 
 - Upload image files or use your webcam to capture faces
-- Automatic face detection using OpenCV
+- Automatic face detection using TensorFlow.js and face-api.js
 - Manual face selection when automatic detection fails
-- Age prediction for each detected face
+- Age and gender prediction for each detected face
 - Real-time webcam integration with live detection
 - Responsive design that works on mobile and desktop
 
 ## Technologies Used
 
-- **Backend**: Flask (Python)
-- **Frontend**: HTML, CSS, JavaScript, Bootstrap
-- **Computer Vision**: OpenCV
-- **Face Detection**: Haar Cascade Classifier
-- **Age Detection**: Simple age prediction model
-
-## Deployment Instructions
-
-### Prerequisites
-
-- Python 3.11 or higher
-- pip (Python package manager)
-- Git (optional, for cloning the repository)
-
-### Option 1: Deploy on Replit
-
-1. Fork this project on Replit
-2. Click the "Run" button
-3. The application will automatically deploy and be accessible via the provided URL
-
-### Option 2: Local Deployment
-
-1. Clone the repository:
-   ```
-   git clone <repository-url>
-   cd face-age-predictor
-   ```
-
-2. Install the required dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
-
-3. Run the application:
-   ```
-   python main.py
-   ```
-
-4. Access the application in your browser at:
-   ```
-   http://localhost:5000
-   ```
-
-### Option 3: Production Deployment
-
-For production deployment, we recommend:
-
-1. Using Gunicorn as a WSGI server:
-   ```
-   gunicorn --bind 0.0.0.0:5000 main:app
-   ```
-
-2. Setting up a reverse proxy with Nginx or Apache
-
-3. Using environment variables for configuration:
-   - Set `SESSION_SECRET` for secure session management
+- **Frontend**: Next.js, React, Bootstrap
+- **Face Detection**: face-api.js, TensorFlow.js
+- **UI Components**: React-Bootstrap
 
 ## Usage
 
-1. Open the application in your browser
-2. Choose either "Upload Image" or "Webcam" for face detection
-3. If uploading an image, drag and drop or click to select an image
-4. If using webcam, click "Start Camera" and then "Capture Photo"
-5. Click "Analyze Face" to process the image
-6. View the age prediction results for all detected faces
+### Image Upload
+
+1. Visit the homepage
+2. Choose "Upload Image" tab
+3. Drag and drop an image file or click to select from your device
+4. Once the image is loaded, click "Analyze Face" to detect faces and predict ages
+5. If automatic detection misses faces, use "Select Face Manually" to draw a rectangle around the face
+
+### Webcam
+
+1. Navigate to the "Webcam" tab
+2. Click "Start Camera" to activate your device's camera (you may need to grant permission)
+3. Either click "Capture Photo" to take a still image for analysis, or
+4. Click "Live Detection" for real-time continuous face detection and age prediction
 
 ### Manual Face Selection
 
@@ -88,24 +43,14 @@ If automatic face detection doesn't work correctly:
 3. Once the face is selected, click "Analyze Face" to process just that area
 4. The results will be marked as "Manual Selection"
 
-### Live Detection
+## Development
 
-For real-time face detection with the webcam:
+To run the application locally:
 
-1. Go to the Webcam tab and click "Start Camera"
-2. Once the camera is active, click "Live Detection"
-3. The app will continuously capture and analyze faces in real-time
-4. Click "Stop Live Detection" to end the continuous detection
+```bash
+npm install
+npm run dev
+```
 
-## Further Development
+The application will be available at http://localhost:3000.
 
-To improve this application:
-
-1. Integrate more advanced face detection models like MTCNN or RetinaFace
-2. Add more prediction capabilities (gender, emotion, etc.)
-3. Implement user accounts for saving analysis history
-4. Add API endpoints for programmatic access
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.

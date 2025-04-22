@@ -1,0 +1,23 @@
+{
+  "name": "workspace",
+  "version": "1.0.0",
+  "description": "A web application that uses computer vision to detect faces and predict ages from images or webcam.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@tensorflow/tfjs-node": "^4.22.0",
+    "bootstrap": "^5.3.5",
+    "express": "^5.1.0",
+    "face-api.js": "^0.22.2",
+    "http-proxy-middleware": "^3.0.5",
+    "next": "^15.3.1",
+    "react": "^19.1.0",
+    "react-bootstrap": "^2.10.9",
+    "react-dom": "^19.1.0"
+  }
+}
