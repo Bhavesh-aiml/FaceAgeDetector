@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face API Model Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #results {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            min-height: 200px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #0d6efd;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0b5ed7;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Face API Model Test</h1>
+    
+    <p>This page tests whether the face-api.js model files are accessible from your server.</p>
+    
+    <button id="testButton">Test Model Files Access</button>
+    
+    <div id="results">Results will appear here...</div>
+
+    <script>
+        document.getElementById('testButton').addEventListener('click', async () => {
+            const results = document.getElementById('results');
+            results.innerHTML = '<p>Testing model access...</p>';
+            
+            const modelFiles = [
+                '/models/tiny_face_detector_model-weights_manifest.json',
+                '/models/face_landmark_68_model-weights_manifest.json',
+                '/models/age_gender_model-weights_manifest.json'
+            ];
+            
+            let allSuccess = true;
+            let resultHTML = '';
+            
+            for (const modelFile of modelFiles) {
+                try {
+                    const response = await fetch(modelFile);
+                    
+                    if (response.ok) {
+                        resultHTML += `<p class="success">✅ Successfully accessed: ${modelFile}</p>`;
+                    } else {
+                        resultHTML += `<p class="error">❌ Failed to access: ${modelFile} (Status: ${response.status})</p>`;
+                        allSuccess = false;
+                    }
+                } catch (error) {
+                    resultHTML += `<p class="error">❌ Error accessing: ${modelFile} - ${error.message}</p>`;
+                    allSuccess = false;
+                }
+            }
+            
+            if (allSuccess) {
+                resultHTML = '<h2 class="success">All model files are accessible! 🎉</h2>' + resultHTML;
+            } else {
+                resultHTML = '<h2 class="error">Some model files are not accessible! ⚠️</h2>' + resultHTML;
+            }
+            
+            results.innerHTML = resultHTML;
+        });
+    </script>
+</body>
+</html>

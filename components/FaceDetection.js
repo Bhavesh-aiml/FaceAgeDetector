@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import * as faceapi from 'face-api.js';
 import { Button, Container, Tabs, Tab, Spinner, Alert } from 'react-bootstrap';
+
+// Import face-api dynamically to prevent SSR issues
+let faceapi = null;
 import ImageUploader from './ImageUploader';
 import WebcamCapture from './WebcamCapture';
 import ResultsDisplay from './ResultsDisplay';
@@ -24,26 +26,80 @@ const FaceDetection = () => {
 
   // Load face-api.js models on component mount
   useEffect(() => {
-    const loadModels = async () => {
+    const loadFaceApiAndModels = async () => {
       setIsLoading(true);
+      
       try {
-        const MODEL_URL = '/models';
-        await Promise.all([
+        // First, dynamically import the face-api.js library
+        const faceApiModule = await import('face-api.js');
+        faceapi = faceApiModule;
+        
+        // Check if the browser environment is available
+        if (typeof window === 'undefined') {
+          throw new Error('Cannot load models in server environment');
+        }
+        
+        // Explicitly use the public URL for models
+        const MODEL_URL = window.location.origin + '/models';
+        console.log('Loading models from:', MODEL_URL);
+        
+        // Use a simple test first to see if model access is working
+        try {
+          const testResponse = await fetch(`${MODEL_URL}/tiny_face_detector_model-weights_manifest.json`);
+          if (!testResponse.ok) {
+            console.error('Model test fetch failed with status:', testResponse.status);
+            throw new Error(`Cannot access models (HTTP ${testResponse.status})`);
+          }
+          console.log('Model test access successful');
+        } catch (fetchErr) {
+          console.error('Model test fetch error:', fetchErr);
+          throw new Error('Cannot access model files. Network error: ' + fetchErr.message);
+        }
+        
+        // Now load the models sequentially with error handling
+        // Try with a 2-second timeout for each model
+        const loadModelWithTimeout = async (modelLoader, name) => {
+          try {
+            await Promise.race([
+              modelLoader,
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error(`Loading ${name} timed out`)), 5000)
+              )
+            ]);
+            console.log(`${name} loaded successfully`);
+          } catch (err) {
+            console.error(`Error loading ${name}:`, err);
+            throw new Error(`Failed to load ${name}: ${err.message}`);
+          }
+        };
+        
+        // Load models one by one with timeout
+        await loadModelWithTimeout(
           faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+          'face detector model'
+        );
+        
+        await loadModelWithTimeout(
           faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-          faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL)
-        ]);
+          'facial landmark model'
+        );
+        
+        await loadModelWithTimeout(
+          faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL),
+          'age-gender model'
+        );
+        
         setModelsLoaded(true);
         console.log('Face detection models loaded successfully');
       } catch (error) {
         console.error('Error loading models:', error);
-        setError('Failed to load face detection models. Please refresh the page.');
+        setError('Failed to load face detection models: ' + (error.message || 'Unknown error'));
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadModels();
+    loadFaceApiAndModels();
   }, []);
 
   const handleImageUpload = (imageData) => {
