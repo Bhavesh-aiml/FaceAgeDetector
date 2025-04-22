@@ -84,6 +84,24 @@
     font-size: 12px;
 }
 
+/* Manual selection styles */
+.manual-selection-active {
+    border: 2px dashed var(--bs-primary) !important;
+}
+
+.manual-selection-box {
+    position: absolute;
+    border: 3px dashed #ffc107;
+    background-color: rgba(255, 193, 7, 0.2);
+    z-index: 10;
+    pointer-events: none;
+}
+
+#selection-instructions {
+    margin-top: 1rem;
+    font-size: 0.9rem;
+}
+
 /* Responsive adjustments */
 @media (max-width: 576px) {
     .dropzone, .webcam-container {

@@ -246,6 +246,12 @@ document.addEventListener('DOMContentLoaded', function() {
         displayPreview(imageData);
     }
 
+    // Manual face selection variables
+    let isManualSelectionActive = false;
+    let manualSelectionStart = { x: 0, y: 0 };
+    let manualSelectionCurrent = { x: 0, y: 0 };
+    let selectionBox = null;
+
     // Preview and Analysis
     function displayPreview(src) {
         previewImage.src = src;
@@ -254,6 +260,177 @@ document.addEventListener('DOMContentLoaded', function() {
         clearResults();
         // Remove any face markers
         faceMarkers.innerHTML = '';
+        
+        // Add manual selection button if not already present
+        let manualSelectionBtn = document.getElementById('manual-selection-btn');
+        if (!manualSelectionBtn) {
+            const buttonContainer = analyzeBtn.parentNode;
+            
+            manualSelectionBtn = document.createElement('button');
+            manualSelectionBtn.id = 'manual-selection-btn';
+            manualSelectionBtn.className = 'btn btn-outline-secondary ms-2';
+            manualSelectionBtn.innerHTML = '<i class="fas fa-crop-alt me-2"></i>Select Face Manually';
+            manualSelectionBtn.onclick = toggleManualSelection;
+            
+            // Insert after analyze button
+            buttonContainer.insertBefore(manualSelectionBtn, analyzeBtn.nextSibling);
+        } else {
+            manualSelectionBtn.style.display = 'inline-block';
+        }
+    }
+    
+    // Manual face selection functions
+    function toggleManualSelection() {
+        const manualSelectionBtn = document.getElementById('manual-selection-btn');
+        const imageContainer = document.querySelector('.image-container');
+        
+        if (isManualSelectionActive) {
+            // Deactivate manual selection
+            isManualSelectionActive = false;
+            manualSelectionBtn.innerHTML = '<i class="fas fa-crop-alt me-2"></i>Select Face Manually';
+            manualSelectionBtn.classList.remove('btn-warning');
+            manualSelectionBtn.classList.add('btn-outline-secondary');
+            
+            // Remove event listeners
+            previewImage.removeEventListener('mousedown', startManualSelection);
+            previewImage.removeEventListener('mousemove', updateManualSelection);
+            previewImage.removeEventListener('mouseup', endManualSelection);
+            previewImage.removeEventListener('touchstart', handleTouchStart);
+            previewImage.removeEventListener('touchmove', handleTouchMove);
+            previewImage.removeEventListener('touchend', handleTouchEnd);
+            
+            // Remove selection style
+            previewImage.style.cursor = 'default';
+            imageContainer.classList.remove('manual-selection-active');
+            
+            // Remove instructions if present
+            const instructions = document.getElementById('selection-instructions');
+            if (instructions) {
+                instructions.remove();
+            }
+        } else {
+            // Activate manual selection
+            isManualSelectionActive = true;
+            manualSelectionBtn.innerHTML = '<i class="fas fa-times me-2"></i>Cancel Selection';
+            manualSelectionBtn.classList.remove('btn-outline-secondary');
+            manualSelectionBtn.classList.add('btn-warning');
+            
+            // Add event listeners
+            previewImage.addEventListener('mousedown', startManualSelection);
+            previewImage.addEventListener('mousemove', updateManualSelection);
+            previewImage.addEventListener('mouseup', endManualSelection);
+            previewImage.addEventListener('touchstart', handleTouchStart);
+            previewImage.addEventListener('touchmove', handleTouchMove);
+            previewImage.addEventListener('touchend', handleTouchEnd);
+            
+            // Change cursor and add selection style
+            previewImage.style.cursor = 'crosshair';
+            imageContainer.classList.add('manual-selection-active');
+            
+            // Add instructions
+            const instructions = document.createElement('div');
+            instructions.id = 'selection-instructions';
+            instructions.className = 'alert alert-info mt-2';
+            instructions.innerHTML = '<strong>Instructions:</strong> Click and drag to select a face on the image. After selecting, click "Analyze Face" to process your selection.';
+            imageContainer.after(instructions);
+            
+            // Clear any existing selection
+            clearManualSelection();
+        }
+    }
+    
+    function startManualSelection(e) {
+        e.preventDefault();
+        if (!isManualSelectionActive) return;
+        
+        // Get mouse coordinates relative to the image
+        const rect = previewImage.getBoundingClientRect();
+        manualSelectionStart.x = e.clientX - rect.left;
+        manualSelectionStart.y = e.clientY - rect.top;
+        
+        // Create selection box if it doesn't exist
+        if (!selectionBox) {
+            selectionBox = document.createElement('div');
+            selectionBox.className = 'manual-selection-box';
+            document.querySelector('.image-container').appendChild(selectionBox);
+        }
+        
+        // Initialize selection box
+        selectionBox.style.left = `${manualSelectionStart.x}px`;
+        selectionBox.style.top = `${manualSelectionStart.y}px`;
+        selectionBox.style.width = '0px';
+        selectionBox.style.height = '0px';
+        selectionBox.style.display = 'block';
+    }
+    
+    function updateManualSelection(e) {
+        if (!isManualSelectionActive || !selectionBox || selectionBox.style.display === 'none') return;
+        
+        e.preventDefault();
+        
+        // Get current mouse position
+        const rect = previewImage.getBoundingClientRect();
+        manualSelectionCurrent.x = e.clientX - rect.left;
+        manualSelectionCurrent.y = e.clientY - rect.top;
+        
+        // Calculate width and height
+        const width = Math.abs(manualSelectionCurrent.x - manualSelectionStart.x);
+        const height = Math.abs(manualSelectionCurrent.y - manualSelectionStart.y);
+        
+        // Calculate left and top (in case of dragging from right-to-left or bottom-to-top)
+        const left = Math.min(manualSelectionStart.x, manualSelectionCurrent.x);
+        const top = Math.min(manualSelectionStart.y, manualSelectionCurrent.y);
+        
+        // Update selection box
+        selectionBox.style.left = `${left}px`;
+        selectionBox.style.top = `${top}px`;
+        selectionBox.style.width = `${width}px`;
+        selectionBox.style.height = `${height}px`;
+    }
+    
+    function endManualSelection(e) {
+        if (!isManualSelectionActive) return;
+        e.preventDefault();
+        
+        // We don't remove the selection box, as we want it to remain visible
+        // The box will be used for the face analysis
+    }
+    
+    // Touch event handlers for mobile devices
+    function handleTouchStart(e) {
+        if (!isManualSelectionActive) return;
+        
+        const touch = e.touches[0];
+        const mouseEvent = new MouseEvent('mousedown', {
+            clientX: touch.clientX,
+            clientY: touch.clientY
+        });
+        startManualSelection(mouseEvent);
+    }
+    
+    function handleTouchMove(e) {
+        if (!isManualSelectionActive) return;
+        e.preventDefault(); // Prevent scrolling while selecting
+        
+        const touch = e.touches[0];
+        const mouseEvent = new MouseEvent('mousemove', {
+            clientX: touch.clientX,
+            clientY: touch.clientY
+        });
+        updateManualSelection(mouseEvent);
+    }
+    
+    function handleTouchEnd(e) {
+        if (!isManualSelectionActive) return;
+        
+        const mouseEvent = new MouseEvent('mouseup', {});
+        endManualSelection(mouseEvent);
+    }
+    
+    function clearManualSelection() {
+        if (selectionBox) {
+            selectionBox.style.display = 'none';
+        }
     }
 
     function analyzeFace() {
@@ -264,13 +441,47 @@ document.addEventListener('DOMContentLoaded', function() {
         analyzeBtn.disabled = true;
         clearResults();
         
+        // Check if we're using manual selection
+        let requestBody = { image: imageData };
+        
+        if (isManualSelectionActive && selectionBox && selectionBox.style.display !== 'none') {
+            // Get the selection box coordinates for the displayed image
+            const selectionRect = {
+                x: parseInt(selectionBox.style.left),
+                y: parseInt(selectionBox.style.top),
+                width: parseInt(selectionBox.style.width),
+                height: parseInt(selectionBox.style.height)
+            };
+            
+            // Calculate the ratio between the displayed image and the natural image
+            const displayedWidth = previewImage.offsetWidth;
+            const displayedHeight = previewImage.offsetHeight;
+            const naturalWidth = previewImage.naturalWidth;
+            const naturalHeight = previewImage.naturalHeight;
+            
+            const widthRatio = naturalWidth / displayedWidth;
+            const heightRatio = naturalHeight / displayedHeight;
+            
+            // Convert the selection coordinates to the natural image coordinates
+            const naturalSelectionRect = {
+                x: Math.round(selectionRect.x * widthRatio),
+                y: Math.round(selectionRect.y * heightRatio),
+                width: Math.round(selectionRect.width * widthRatio),
+                height: Math.round(selectionRect.height * heightRatio)
+            };
+            
+            // Add the manual selection to the request
+            requestBody.manual_selection = naturalSelectionRect;
+            console.log('Using manual selection:', naturalSelectionRect);
+        }
+        
         // Send the image to the server for processing
         fetch('/predict', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ image: imageData })
+            body: JSON.stringify(requestBody)
         })
         .then(response => response.json())
         .then(data => {
@@ -280,6 +491,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.error) {
                 showError(data.error);
                 return;
+            }
+            
+            // If it was a manual selection, deactivate selection mode
+            if (isManualSelectionActive) {
+                toggleManualSelection();
             }
             
             // Display results
@@ -326,9 +542,12 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Create result card
             resultsHTML += `
-                <div class="card mb-3">
+                <div class="card mb-3 ${result.manual ? 'border-warning' : ''}">
                     <div class="card-body">
-                        <h6 class="card-title">Face #${index + 1}</h6>
+                        <h6 class="card-title">
+                            Face #${index + 1}
+                            ${result.manual ? '<span class="badge bg-warning text-dark ms-2">Manual Selection</span>' : ''}
+                        </h6>
                         <div class="d-flex align-items-center">
                             <div class="display-4 me-3">${Math.round(result.age)}</div>
                             <div class="text-muted">years old</div>
@@ -395,8 +614,22 @@ document.addEventListener('DOMContentLoaded', function() {
         previewSection.classList.add('d-none');
         clearResults();
         
+        // Deactivate manual selection if active
+        if (isManualSelectionActive) {
+            toggleManualSelection();
+        }
+        
+        // Clear manual selection box
+        clearManualSelection();
+        
         // Reset buttons
         analyzeBtn.disabled = true;
+        
+        // Hide manual selection button if it exists
+        const manualSelectionBtn = document.getElementById('manual-selection-btn');
+        if (manualSelectionBtn) {
+            manualSelectionBtn.style.display = 'none';
+        }
     }
 
     // Handle window resize to adjust face markers

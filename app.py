@@ -182,6 +182,8 @@ def predict():
     try:
         # Get the image data from the POST request
         image_data = request.json.get('image')
+        manual_selection = request.json.get('manual_selection')
+        
         if not image_data:
             return jsonify({'error': 'No image provided'}), 400
 
@@ -203,33 +205,71 @@ def predict():
             os.unlink(temp_file_path)
             return jsonify({'error': 'Failed to read image'}), 400
         
-        # Try DNN face detection first (better accuracy)
-        face_detections = detect_faces_dnn(img)
-        
-        # If DNN detection failed or found no faces, fall back to Haar cascade
-        if not face_detections or len(face_detections) == 0:
-            logger.info("Falling back to Haar cascade face detection")
-            # Convert to grayscale for Haar cascade
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        # Check if we have a manual face selection
+        if manual_selection:
+            logger.info(f"Using manual face selection: {manual_selection}")
             
-            # Detect faces
-            faces = face_cascade.detectMultiScale(gray, 1.1, 4)
-            
-            # If still no faces detected
-            if len(faces) == 0:
-                os.unlink(temp_file_path)
-                return jsonify({'error': 'No face detected in the image'}), 400
+            # Extract the coordinates from the manual selection
+            try:
+                x = max(0, int(manual_selection.get('x', 0)))
+                y = max(0, int(manual_selection.get('y', 0)))
+                w = max(1, int(manual_selection.get('width', 100)))
+                h = max(1, int(manual_selection.get('height', 100)))
                 
-            # Convert Haar cascade format to our standard format
-            face_detections = []
-            for (x, y, w, h) in faces:
-                face_detections.append({
-                    'x': int(x),
-                    'y': int(y),
-                    'width': int(w),
-                    'height': int(h),
-                    'confidence': 0.8  # Arbitrary confidence for Haar cascade
-                })
+                # Make sure the selection is within image bounds
+                img_height, img_width = img.shape[:2]
+                x = min(x, img_width - 1)
+                y = min(y, img_height - 1)
+                w = min(w, img_width - x)
+                h = min(h, img_height - y)
+                
+                # Use the manual selection as the face detection
+                face_detections = [{
+                    'x': x,
+                    'y': y,
+                    'width': w,
+                    'height': h,
+                    'confidence': 1.0,  # High confidence for manual selection
+                    'manual': True
+                }]
+            except Exception as e:
+                logger.error(f"Error processing manual selection: {e}")
+                # If manual selection fails, fall back to automatic detection
+                face_detections = None
+        else:
+            # No manual selection, use automatic detection
+            face_detections = None
+        
+        # If no manual selection or it failed, try automatic detection
+        if not face_detections:
+            # Try DNN face detection first (better accuracy)
+            face_detections = detect_faces_dnn(img)
+            
+            # If DNN detection failed or found no faces, fall back to Haar cascade
+            if not face_detections or len(face_detections) == 0:
+                logger.info("Falling back to Haar cascade face detection")
+                # Convert to grayscale for Haar cascade
+                gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                
+                # Detect faces
+                faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+                
+                # If still no faces detected
+                if len(faces) == 0:
+                    os.unlink(temp_file_path)
+                    return jsonify({'error': 'No face detected in the image. Try using manual selection.'}), 400
+                    
+                # Convert Haar cascade format to our standard format
+                face_detections = []
+                for (x, y, w, h) in faces:
+                    face_detections.append({
+                        'x': int(x),
+                        'y': int(y),
+                        'width': int(w),
+                        'height': int(h),
+                        'confidence': 0.8,  # Arbitrary confidence for Haar cascade
+                        'manual': False
+                    })
         
         # Process each detected face
         results = []
@@ -241,24 +281,28 @@ def predict():
                 w = face['width']
                 h = face['height']
                 
-                # Extract the face ROI
-                face_img = img[y:y+h, x:x+w].copy()
-                
-                # Estimate age
-                age = estimate_age_from_face(face_img)
-                
-                # Create result object
-                face_result = {
-                    'age': age,
-                    'position': {
-                        'x': int(x),
-                        'y': int(y),
-                        'width': int(w),
-                        'height': int(h)
-                    },
-                    'confidence': face.get('confidence', 0.0)
-                }
-                results.append(face_result)
+                # Extract the face ROI, ensuring bounds are valid
+                if y >= 0 and x >= 0 and y+h <= img.shape[0] and x+w <= img.shape[1]:
+                    face_img = img[y:y+h, x:x+w].copy()
+                    
+                    # Ensure the face image is not empty
+                    if face_img.size > 0:
+                        # Estimate age
+                        age = estimate_age_from_face(face_img)
+                        
+                        # Create result object
+                        face_result = {
+                            'age': age,
+                            'position': {
+                                'x': int(x),
+                                'y': int(y),
+                                'width': int(w),
+                                'height': int(h)
+                            },
+                            'confidence': face.get('confidence', 0.0),
+                            'manual': face.get('manual', False)
+                        }
+                        results.append(face_result)
                 
             except Exception as e:
                 logger.error(f"Error analyzing face: {e}")
@@ -269,7 +313,7 @@ def predict():
         
         # Return the results
         if len(results) == 0:
-            return jsonify({'error': 'Could not analyze any faces in the image'}), 400
+            return jsonify({'error': 'Could not analyze the selected area. Please try again with a different selection or image.'}), 400
         
         return jsonify({'results': results})
         

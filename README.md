@@ -6,8 +6,9 @@ A web application that uses computer vision to detect faces and predict ages fro
 
 - Upload image files or use your webcam to capture faces
 - Automatic face detection using OpenCV
+- Manual face selection when automatic detection fails
 - Age prediction for each detected face
-- Real-time webcam integration for live detection
+- Real-time webcam integration with live detection
 - Responsive design that works on mobile and desktop
 
 ## Technologies Used
@@ -77,6 +78,24 @@ For production deployment, we recommend:
 4. If using webcam, click "Start Camera" and then "Capture Photo"
 5. Click "Analyze Face" to process the image
 6. View the age prediction results for all detected faces
+
+### Manual Face Selection
+
+If automatic face detection doesn't work correctly:
+
+1. After loading an image, click the "Select Face Manually" button
+2. Draw a rectangle around the face by clicking and dragging
+3. Once the face is selected, click "Analyze Face" to process just that area
+4. The results will be marked as "Manual Selection"
+
+### Live Detection
+
+For real-time face detection with the webcam:
+
+1. Go to the Webcam tab and click "Start Camera"
+2. Once the camera is active, click "Live Detection"
+3. The app will continuously capture and analyze faces in real-time
+4. Click "Stop Live Detection" to end the continuous detection
 
 ## Further Development
 
