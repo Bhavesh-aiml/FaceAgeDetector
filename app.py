@@ -53,12 +53,57 @@ def get_face_detector():
 # Try to get a better face detector
 face_net = get_face_detector()
 
-# Better age estimation function using facial features
+# Better age estimation function using DeepFace
 def estimate_age_from_face(face_img):
     """
-    Estimate age from face image using facial proportions and features
-    This is a more sophisticated estimation than random numbers,
-    but still not as accurate as a properly trained neural network
+    Estimate age from face image using DeepFace library
+    This provides a much more accurate age prediction based on deep learning models
+    """
+    try:
+        # Import DeepFace for advanced face analysis
+        from deepface import DeepFace
+        
+        # Save the face image temporarily to use with DeepFace
+        with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as temp_face_file:
+            temp_face_path = temp_face_file.name
+            cv2.imwrite(temp_face_path, face_img)
+        
+        # Use DeepFace to analyze the face and get age prediction
+        result = DeepFace.analyze(
+            img_path=temp_face_path,
+            actions=['age'],
+            enforce_detection=False,  # Skip internal face detection as we already have a face ROI
+            silent=True  # Suppress log messages
+        )
+        
+        # Clean up temporary file
+        os.unlink(temp_face_path)
+        
+        # Extract the age from the result
+        if isinstance(result, list):
+            # Sometimes DeepFace returns a list of results for multiple faces
+            if len(result) > 0:
+                age = result[0]['age']
+            else:
+                # Fallback if no results
+                age = estimate_age_fallback(face_img)
+        else:
+            # Sometimes DeepFace returns a single result
+            age = result['age']
+            
+        logger.info(f"DeepFace age prediction: {age}")
+        return age
+        
+    except Exception as e:
+        logger.error(f"Error in DeepFace age prediction: {e}")
+        # Fallback to traditional method if DeepFace fails
+        return estimate_age_fallback(face_img)
+
+# Fallback age estimation if DeepFace fails
+def estimate_age_fallback(face_img):
+    """
+    Fallback method for age estimation using traditional computer vision
+    techniques when DeepFace analysis fails
     """
     try:
         # Convert to grayscale
@@ -75,19 +120,15 @@ def estimate_age_from_face(face_img):
             # Calculate face width to height ratio (can be indicative of age)
             face_ratio = width / height
             
-            # Calculate facial proportions (forehead size vs. lower face)
-            forehead_height = height / 3  # approximate forehead region
-            
             # Detect wrinkles using edge detection
             edges = cv2.Canny(gray_face, 50, 150)
             wrinkle_density = np.sum(edges) / (width * height)
             
             # Based on these features, estimate age range
-            # Higher wrinkle density and lower face ratios tend to indicate older ages
             base_age = 30  # start with middle age
             
             # Adjust based on wrinkle density (more wrinkles → older)
-            age_from_wrinkles = base_age + (wrinkle_density * 1000)
+            age_from_wrinkles = base_age + (wrinkle_density * 800)
             
             # Adjust based on face ratio (rounder faces → younger)
             if face_ratio > 0.85:  # rounder face
@@ -99,19 +140,21 @@ def estimate_age_from_face(face_img):
             estimated_age = int(age_from_wrinkles + age_adjustment)
             
             # Clamp to reasonable range
-            estimated_age = max(18, min(75, estimated_age))
+            estimated_age = max(18, min(70, estimated_age))
             
             return estimated_age
         
         # Fallback to a more basic estimation if no eyes detected
         else:
+            # Use a distributed range instead of fixed 75
             import random
-            return random.randint(20, 60)  # randomized age
+            return random.randint(20, 60)
             
     except Exception as e:
-        logger.error(f"Error in age estimation: {e}")
+        logger.error(f"Error in fallback age estimation: {e}")
+        # Return a varied age range, not just 75
         import random
-        return random.randint(25, 55)  # even more basic fallback
+        return random.randint(25, 55)
 
 # Improved face detection using DNN if available
 def detect_faces_dnn(image, confidence_threshold=0.5):
